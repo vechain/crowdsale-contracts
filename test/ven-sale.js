@@ -1,5 +1,5 @@
-const VEN = artifacts.require('./Ven.sol')
-const Sale = artifacts.require('./MockedVenSale.sol')
+const VEN = artifacts.require('./VEN.sol')
+const Sale = artifacts.require('./MockedVENSale.sol')
 const { assertFail, assertEqual } = require('./utils.js')
 var crypto = require('crypto')
 
