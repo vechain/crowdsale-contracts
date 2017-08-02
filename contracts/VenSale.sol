@@ -208,9 +208,15 @@ contract VENSale is Owned{
         
         ven.mint(
             venVault,
-            nonPublicSupply,
-            false // non-public portion can't claim unsold tokens
-            );
+            nonPublicSupply.sub(privateSupply).sub(commercialPlan),
+            false // team and operations reserved portion can't share unsold tokens
+        );
+
+        ven.mint(
+            venVault,
+            privateSupply.add(commercialPlan),
+            true // private ICO and commercial plan can share unsold tokens
+        );
         onInitialized();
     }
 
