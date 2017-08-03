@@ -68,10 +68,9 @@ contract VEN is Token, Owned {
                 .mul(bonusOffered)
                 .div(rawTokensSupplied.get());
 
-            return accounts[_owner].balance = 
-                 accounts[_owner].balance
-                .add(accounts[_owner].rawTokens)
-                .add(bonus);
+            return accounts[_owner].balance
+                    .add(accounts[_owner].rawTokens)
+                    .add(bonus);
         }
         
         return accounts[_owner].balance.add(accounts[_owner].rawTokens);
