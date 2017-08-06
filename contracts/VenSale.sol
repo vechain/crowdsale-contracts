@@ -125,8 +125,9 @@ contract VENSale is Owned{
         require(rate > 0);
 
         uint256 remained = officialLimit.sub(officialSold());
-        uint256 requested = msg.value.mul(rate);
+        require(remained > 0);
 
+        uint256 requested = msg.value.mul(rate);
         if (requested > remained) {
             //exceed remained
             requested = remained;
