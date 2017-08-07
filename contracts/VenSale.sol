@@ -147,7 +147,7 @@ contract VENSale is Owned{
             officialSold_.set(officialSold_.get().add(requested));
             onSold(msg.sender, requested, ethCost);        
         }
-        
+
         uint256 toReturn = msg.value.sub(ethCost);
         if(toReturn > 0) {
             // return over payed ETH
@@ -184,6 +184,7 @@ contract VENSale is Owned{
     /// @param _ven The address VEN token contract following ERC20 standard
     /// @param _ethVault The place to store received ETH
     /// @param _venVault The place to store non-publicly supplied VEN tokens
+    /// @param _channelsLimit The hard limit for channels sale
     /// @param _startTime The time when sale starts
     /// @param _endTime The time when sale ends
     /// @param _earlyStageLasts duration of early stage
@@ -220,7 +221,7 @@ contract VENSale is Owned{
         
         ven.mint(
             venVault,
-            nonPublicSupply.sub(privateSupply).sub(commercialPlan),
+            reservedForTeam.add(reservedForOperations),
             false // team and operations reserved portion can't share unsold tokens
         );
 
