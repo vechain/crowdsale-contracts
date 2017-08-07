@@ -18,6 +18,8 @@ contract('Sale', accounts => {
   const nonPubSupply = web3.toWei((10 ** 9) * 59 / 100)
   const pubSupply = web3.toWei((10 ** 9) * 41 / 100)
 
+  const channesLimit = web3.toWei((10 ** 9) * 30 / 100)
+
   const Stage = {
     Created: 1,
     Initialized: 2,
@@ -29,7 +31,7 @@ contract('Sale', accounts => {
 
   it('deploy', async () => {
     // activate vault to decrease gas usage
-    await web3.eth.sendTransaction({to: ethValut, value: 0, from : accounts[0]})
+    await web3.eth.sendTransaction({ to: ethValut, value: 0, from: accounts[0] })
     ven = await VEN.new()
     sale = await Sale.new()
     // stage: created
@@ -37,8 +39,9 @@ contract('Sale', accounts => {
 
     // check constants   
     assertEqual(await sale.totalSupply(), totalSupply)
+
     assertEqual(await sale.nonPublicSupply(), nonPubSupply)
-    assertEqual((await sale.officialLimit()).add(await sale.channelsLimit()), pubSupply)
+    assertEqual(await sale.publicSupply(), pubSupply)
   })
 
   const nowTS = Math.floor(Date.now() / 1000)
@@ -52,12 +55,16 @@ contract('Sale', accounts => {
       ven.address,
       ethValut,
       venVault,
+      channesLimit,
       startTime,
       endTime,
       earlyStageLasts)
 
     // stage: initialized
     assertEqual(await sale.stage(), Stage.Initialized)
+
+    assertEqual(await sale.channelsLimit(), channesLimit)
+    assertEqual((await sale.officialLimit()).add(await sale.channelsLimit()), pubSupply)
 
     // nonpublic supply minted after initialized
     assertEqual(await ven.totalSupply(), nonPubSupply)
