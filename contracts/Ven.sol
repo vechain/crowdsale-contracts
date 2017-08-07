@@ -44,7 +44,7 @@ contract VEN is Token, Owned {
     }
 
     // If sealed, transfer is enabled and mint is disabled
-    function isSealed() internal constant returns (bool) {
+    function isSealed() constant returns (bool) {
         return owner == 0;
     }
 
