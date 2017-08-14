@@ -24,10 +24,10 @@ contract('VEN', accounts => {
         const m2_2 = 100
         const m3 = 500
 
-        await ven.mint(acc1, m1, true)
-        await ven.mint(acc2, m2_1, true)
-        await ven.mint(acc2, m2_2, true)
-        await ven.mint(acc3, m3, false)
+        await ven.mint(acc1, m1, true, 0)
+        await ven.mint(acc2, m2_1, true, 0)
+        await ven.mint(acc2, m2_2, true, 0)
+        await ven.mint(acc3, m3, false, 0)
 
         assertEqual(await ven.balanceOf(acc1), m1)
         assertEqual(await ven.balanceOf(acc2), m2_1 + m2_2)
@@ -51,7 +51,7 @@ contract('VEN', accounts => {
 
         assertEqual(await ven.owner(), 0)
         // mint disabled
-        await assertFail(ven.mint(acc1, 1, true))
+        await assertFail(ven.mint(acc1, 1, true, 0))
 
         assertEqual(await ven.balanceOf(acc1), b1.add(b1.mul(bonus).div(rawTokensSupplied).floor()))
         assertEqual(await ven.balanceOf(acc2), b2.add(b2.mul(bonus).div(rawTokensSupplied).floor()))

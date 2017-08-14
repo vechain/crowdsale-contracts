@@ -38,8 +38,9 @@ contract VENSale is Owned{
     // 41%
     uint256 public constant publicSupply = totalSupply - nonPublicSupply;
 
-    uint256 public officialLimit;
-    uint256 public channelsLimit;
+
+    uint256 public constant officialLimit = 64371825 * (10 ** 18);
+    uint256 public constant channelsLimit = publicSupply - officialLimit;
 
     using Prealloc for Prealloc.UINT256;
     Prealloc.UINT256 officialSold_; // amount of tokens officially sold out
@@ -48,15 +49,18 @@ contract VENSale is Owned{
     
     uint256 constant venPerEth = 3500;  // normal exchange rate
     uint256 constant venPerEthEarlyStage = venPerEth + venPerEth * 15 / 100;  // early stage has 15% reward
+
+    uint constant minBuyInterval = 30 minutes; // each account can buy once in 30 minutes
+    uint constant maxBuyEthAmount = 30 ether;
    
     VEN ven; // VEN token contract follows ERC20 standard
 
     address ethVault; // the account to keep received ether
     address venVault; // the account to keep non-public offered VEN tokens
 
-    uint public startTime; // time to start sale
-    uint public endTime;   // tiem to close sale
-    uint public earlyStageLasts; // early bird stage lasts in seconds
+    uint public constant startTime = 1503057600; // time to start sale
+    uint public constant endTime = 1504180800;   // tiem to close sale
+    uint public constant earlyStageLasts = 3 days; // early bird stage lasts in seconds
 
     bool initialized;
     bool finalized;
@@ -78,8 +82,8 @@ contract VENSale is Owned{
     }
 
     /// @notice for test purpose
-    function blockTime() constant returns (uint) {
-        return block.timestamp;
+    function blockTime() constant returns (uint32) {
+        return uint32(block.timestamp);
     }
 
     /// @notice estimate stage
@@ -118,6 +122,15 @@ contract VENSale is Owned{
         return Stage.Closed;
     }
 
+    function isContract(address _addr) constant internal returns(bool) {
+        uint size;
+        if (_addr == 0) return false;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return size > 0;
+    }
+
     /// @notice entry to buy tokens
     function () payable {        
         buy();
@@ -125,14 +138,25 @@ contract VENSale is Owned{
 
     /// @notice entry to buy tokens
     function buy() payable {
+        // reject contract buyer to avoid breaking interval limit
+        require(!isContract(msg.sender));
         require(msg.value >= 0.01 ether);
 
         uint256 rate = exchangeRate();
         // here don't need to check stage. rate is only valid when in sale
         require(rate > 0);
+        // each account is allowed once in minBuyInterval
+        require(blockTime() >= ven.lastMintedTimestamp(msg.sender) + minBuyInterval);
+
+        uint256 requested;
+        // and limited to maxBuyEthAmount
+        if (msg.value > maxBuyEthAmount) {
+            requested = maxBuyEthAmount.mul(rate);
+        } else {
+            requested = msg.value.mul(rate);
+        }
 
         uint256 remained = officialLimit.sub(officialSold_.get());
-        uint256 requested = msg.value.mul(rate);
         if (requested > remained) {
             //exceed remained
             requested = remained;
@@ -140,7 +164,7 @@ contract VENSale is Owned{
 
         uint256 ethCost = requested.div(rate);
         if (requested > 0) {
-            ven.mint(msg.sender, requested, true);
+            ven.mint(msg.sender, requested, true, blockTime());
             // transfer ETH to vault
             ethVault.transfer(ethCost);
 
@@ -160,8 +184,8 @@ contract VENSale is Owned{
         return officialSold_.get();
     }
 
-    /// @notice manually offer tokens to channels
-    function offerToChannels(uint256 _venAmount) onlyOwner {
+    /// @notice manually offer tokens to channel
+    function offerToChannel(address _channelAccount, uint256 _venAmount) onlyOwner {
         Stage stg = stage();
         // since the settlement may be delayed, so it's allowed in closed stage
         require(stg == Stage.Early || stg == Stage.Normal || stg == Stage.Closed);
@@ -172,63 +196,48 @@ contract VENSale is Owned{
         require(channelsSold <= channelsLimit);
 
         ven.mint(
-            venVault,
+            _channelAccount,
             _venAmount,
-            true  // unsold tokens can be claimed by channels portion
+            true,  // unsold tokens can be claimed by channels portion
+            blockTime()
             );
 
-        onSold(venVault, _venAmount, 0);
+        onSold(_channelAccount, _venAmount, 0);
     }
 
     /// @notice initialize to prepare for sale
     /// @param _ven The address VEN token contract following ERC20 standard
     /// @param _ethVault The place to store received ETH
     /// @param _venVault The place to store non-publicly supplied VEN tokens
-    /// @param _channelsLimit The hard limit for channels sale
-    /// @param _startTime The time when sale starts
-    /// @param _endTime The time when sale ends
-    /// @param _earlyStageLasts duration of early stage
     function initialize(
         VEN _ven,
         address _ethVault,
-        address _venVault,
-        uint256 _channelsLimit,
-        uint _startTime,
-        uint _endTime,
-        uint _earlyStageLasts) onlyOwner {
+        address _venVault) onlyOwner {
         require(stage() == Stage.Created);
 
         // ownership of token contract should already be this
         require(_ven.owner() == address(this));
 
         require(address(_ethVault) != 0);
-        require(address(_venVault) != 0);
-
-        require(_startTime > blockTime());
-        require(_startTime.add(_earlyStageLasts) < _endTime);        
+        require(address(_venVault) != 0);      
 
         ven = _ven;
         
         ethVault = _ethVault;
-        venVault = _venVault;
-
-        channelsLimit = _channelsLimit;
-        officialLimit = publicSupply.sub(_channelsLimit);
-
-        startTime = _startTime;
-        endTime = _endTime;
-        earlyStageLasts = _earlyStageLasts;        
+        venVault = _venVault;    
         
         ven.mint(
             venVault,
             reservedForTeam.add(reservedForOperations),
-            false // team and operations reserved portion can't share unsold tokens
+            false, // team and operations reserved portion can't share unsold tokens
+            blockTime()
         );
 
         ven.mint(
             venVault,
             privateSupply.add(commercialPlan),
-            true // private ICO and commercial plan can share unsold tokens
+            true, // private ICO and commercial plan can share unsold tokens
+            blockTime()
         );
 
         initialized = true;

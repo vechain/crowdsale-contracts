@@ -7,6 +7,8 @@ contract('Sale', accounts => {
   const ethValut = '0x' + crypto.randomBytes(20).toString('hex')
   const venVault = '0x' + crypto.randomBytes(20).toString('hex')
 
+  const channel1Address = '0x' + crypto.randomBytes(20).toString('hex')
+
   const buyer1 = accounts[0]
   const buyer2 = accounts[1]
   const buyer3 = accounts[2]
@@ -16,9 +18,7 @@ contract('Sale', accounts => {
 
   const totalSupply = web3.toWei(10 ** 9)
   const nonPubSupply = web3.toWei((10 ** 9) * 59 / 100)
-  const pubSupply = web3.toWei((10 ** 9) * 41 / 100)
-
-  const channesLimit = web3.toWei((10 ** 9) * 30 / 100)
+  const pubSupply = web3.toWei((10 ** 9) * 41 / 100)  
 
   const Stage = {
     Created: 1,
@@ -44,26 +44,21 @@ contract('Sale', accounts => {
     assertEqual(await sale.publicSupply(), pubSupply)
   })
 
-  const nowTS = Math.floor(Date.now() / 1000)
-  const startTime = nowTS + 10
-  const endTime = startTime + 100
-  const earlyStageLasts = 50
+  const startTime = new Date("2017-08-18T12:00:00.000Z").getTime() / 1000
+  const endTime = new Date("2017-08-31T12:00:00.000Z").getTime() / 1000
+  const earlyStageLasts = 24 * 3600 * 3
 
   it('initialize', async () => {
     await ven.setOwner(sale.address)
     await sale.initialize(
       ven.address,
       ethValut,
-      venVault,
-      channesLimit,
-      startTime,
-      endTime,
-      earlyStageLasts)
+      venVault)
 
     // stage: initialized
     assertEqual(await sale.stage(), Stage.Initialized)
 
-    assertEqual(await sale.channelsLimit(), channesLimit)
+    assertEqual(await sale.officialLimit(), web3.toWei(64371825))
     assertEqual((await sale.officialLimit()).add(await sale.channelsLimit()), pubSupply)
 
     // nonpublic supply minted after initialized
@@ -94,13 +89,17 @@ contract('Sale', accounts => {
     const ethVaultBalance = web3.eth.getBalance(ethValut)
     const b1VenBalance = await ven.balanceOf(buyer1)
 
-    await sale.sendTransaction({ from: buyer1, value: web3.toWei(1) })
+    // send 31 eth
+    await sale.sendTransaction({ from: buyer1, value: web3.toWei(31) })
 
-    // buyer should received ven
-    assertEqual(await ven.balanceOf(buyer1), b1VenBalance.add(web3.toWei(exchangeRate)))
+    // interval limit
+    await assertFail(sale.sendTransaction({ from: buyer1, value: web3.toWei(1) }))
 
-    // eth vault should received 1 eth
-    assertEqual(web3.eth.getBalance(ethValut), ethVaultBalance.add(web3.toWei(1)))
+    // buyer should received ven based on 30 eth due to eth limit
+    assertEqual(await ven.balanceOf(buyer1), b1VenBalance.add(web3.toWei(exchangeRate * 30)))
+
+    // eth vault should received 30 eth
+    assertEqual(web3.eth.getBalance(ethValut), ethVaultBalance.add(web3.toWei(30)))
 
     // small value should fail
     await assertFail(sale.sendTransaction({ from: buyer1, value: web3.toWei(0.001) }))
@@ -131,15 +130,14 @@ contract('Sale', accounts => {
   it('offer to channels', async () => {
     const sold = await sale.channelsSold()
     const supply = await ven.totalSupply()
-    const balanceOfVenVault = await ven.balanceOf(venVault)
 
     const offer = 100
 
-    await sale.offerToChannels(offer)
+    await sale.offerToChannel(channel1Address, offer)
 
     assertEqual(await sale.channelsSold(), sold.add(offer))
     assertEqual(await ven.totalSupply(), supply.add(offer))
-    assertEqual(await ven.balanceOf(venVault), balanceOfVenVault.add(offer))
+    assertEqual(await ven.balanceOf(channel1Address), offer)
   })
 
   it('closed stage', async () => {

@@ -13,10 +13,15 @@ contract VEN is Token, Owned {
     uint8 public constant decimals = 18;               //Number of decimals of the smallest unit
     string public constant symbol  = "VEN";            //An identifier    
 
+    // Algined to 256bit to save gas usage.
+    // uint112's max value is about 5e33.
+    // it's enough to present amount of tokens
     struct Account {
-        uint256 balance;
+        uint112 balance;
         // raw token can be transformed into balance with bonus
-        uint256 rawTokens;
+        uint112 rawTokens;
+        // safe to store timestamp
+        uint32 lastMintedTimestamp;
     }
 
     // Balances for each account
@@ -48,12 +53,24 @@ contract VEN is Token, Owned {
         return owner == 0;
     }
 
+    function lastMintedTimestamp(address _owner) constant returns(uint32) {
+        return accounts[_owner].lastMintedTimestamp;
+    }
+
     // Claim bonus by raw tokens
     function claimBonus(address _owner) internal{      
         require(isSealed());
         if (accounts[_owner].rawTokens != 0) {
-            accounts[_owner].balance = balanceOf(_owner);
+            uint256 realBalance = balanceOf(_owner);
+            uint256 bonus = realBalance
+                .sub(accounts[_owner].balance)
+                .sub(accounts[_owner].rawTokens);
+
+            accounts[_owner].balance = realBalance.toUINT112();
             accounts[_owner].rawTokens = 0;
+            if(bonus > 0){
+                Transfer(this, _owner, bonus);
+            }
         }
     }
 
@@ -62,18 +79,16 @@ contract VEN is Token, Owned {
         if (accounts[_owner].rawTokens == 0)
             return accounts[_owner].balance;
 
-        if (isSealed()) {
-            uint256 bonus = 
-                 accounts[_owner].rawTokens
-                .mul(bonusOffered)
-                .div(rawTokensSupplied.get());
+        if (bonusOffered > 0) {
+            uint256 bonus = bonusOffered
+                 .mul(accounts[_owner].rawTokens)
+                 .div(rawTokensSupplied.get());
 
-            return accounts[_owner].balance
-                    .add(accounts[_owner].rawTokens)
-                    .add(bonus);
+            return bonus.add(accounts[_owner].balance)
+                    .add(accounts[_owner].rawTokens);
         }
         
-        return accounts[_owner].balance.add(accounts[_owner].rawTokens);
+        return accounts[_owner].balance + accounts[_owner].rawTokens;
     }
 
     // Transfer the balance from owner's account to another account
@@ -84,11 +99,11 @@ contract VEN is Token, Owned {
         claimBonus(msg.sender);
         claimBonus(_to);
 
+        // according to VEN's total supply, never overflow here
         if (accounts[msg.sender].balance >= _amount
-            && _amount > 0
-            && accounts[_to].balance + _amount > accounts[_to].balance) {
-            accounts[msg.sender].balance -= _amount;
-            accounts[_to].balance += _amount;
+            && _amount > 0) {            
+            accounts[msg.sender].balance -= uint112(_amount);
+            accounts[_to].balance += uint112(_amount);
             Transfer(msg.sender, _to, _amount);
             return true;
         } else {
@@ -113,13 +128,13 @@ contract VEN is Token, Owned {
         claimBonus(_from);
         claimBonus(_to);
 
+        // according to VEN's total supply, never overflow here
         if (accounts[_from].balance >= _amount
             && allowed[_from][msg.sender] >= _amount
-            && _amount > 0
-            && accounts[_to].balance + _amount > accounts[_to].balance) {
-            accounts[_from].balance -= _amount;
+            && _amount > 0) {
+            accounts[_from].balance -= uint112(_amount);
             allowed[_from][msg.sender] -= _amount;
-            accounts[_to].balance += _amount;
+            accounts[_to].balance += uint112(_amount);
             Transfer(_from, _to, _amount);
             return true;
         } else {
@@ -153,29 +168,30 @@ contract VEN is Token, Owned {
     }
 
     // Mint tokens and assign to some one
-    function mint(address _owner, uint256 _amount, bool _isRaw) onlyOwner{
+    function mint(address _owner, uint256 _amount, bool _isRaw, uint32 timestamp) onlyOwner{
         if (_isRaw) {
-            accounts[_owner].rawTokens = accounts[_owner].rawTokens.add(_amount);
+            accounts[_owner].rawTokens = _amount.add(accounts[_owner].rawTokens).toUINT112();
             rawTokensSupplied.set(rawTokensSupplied.get().add(_amount));
         } else {
-            accounts[_owner].balance = accounts[_owner].balance.add(_amount);
+            accounts[_owner].balance = _amount.add(accounts[_owner].balance).toUINT112();
         }
+
+        accounts[_owner].lastMintedTimestamp = timestamp;
 
         totalSupply = totalSupply.add(_amount);
         Transfer(0, _owner, _amount);
     }
     
     // Offer bonus to raw tokens holder
-    function offerBonus(uint256 _bonus) onlyOwner {
+    function offerBonus(uint256 _bonus) onlyOwner { 
         bonusOffered = bonusOffered.add(_bonus);
+        totalSupply = totalSupply.add(_bonus);
+        Transfer(0, this, _bonus);
     }
 
     // Set owner to zero address, to disable mint, and enable token transfer
     function seal() onlyOwner {
         setOwner(0);
-
-        totalSupply = totalSupply.add(bonusOffered);
-        Transfer(0, address(-1), bonusOffered);
     }
 }
 

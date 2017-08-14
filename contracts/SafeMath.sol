@@ -29,4 +29,9 @@ library SafeMath {
     assert(c >= a);
     return c;
   }
+
+  function toUINT112(uint256 a) internal constant returns(uint112) {
+    assert(uint112(a) == a);
+    return uint112(a);
+  }
 }
