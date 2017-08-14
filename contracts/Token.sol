@@ -14,7 +14,8 @@ contract Token {
     function by the compiler.
     */
     /// total amount of tokens
-    uint256 public totalSupply;
+    //uint256 public totalSupply;
+    function totalSupply() constant returns (uint256 supply);
 
     /// @param _owner The address from which the balance will be retrieved
     /// @return The balance

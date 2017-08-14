@@ -158,6 +158,8 @@ contract('Sale', accounts => {
     // stage: finalized
     assertEqual(await sale.stage(), Stage.Finalized)
 
+    assertEqual(await ven.owner(), "0x0000000000000000000000000000000000000000")
+
   })
 })
 

@@ -3,7 +3,6 @@ pragma solidity ^0.4.11;
 import "./Token.sol";
 import "./Owned.sol";
 import "./SafeMath.sol";
-import "./Prealloc.sol";
 
 /// VEN token, ERC20 compliant
 contract VEN is Token, Owned {
@@ -13,13 +12,25 @@ contract VEN is Token, Owned {
     uint8 public constant decimals = 18;               //Number of decimals of the smallest unit
     string public constant symbol  = "VEN";            //An identifier    
 
-    // Algined to 256bit to save gas usage.
-    // uint112's max value is about 5e33.
-    // it's enough to present amount of tokens
+    // packed to 256bit to save gas usage.
+    struct Supplies {
+        // uint128's max value is about 3e38.
+        // it's enough to present amount of tokens
+        uint128 total;
+        uint128 rawTokens;
+    }
+
+    Supplies supplies;
+
+    // Packed to 256bit to save gas usage.    
     struct Account {
+        // uint112's max value is about 5e33.
+        // it's enough to present amount of tokens
         uint112 balance;
-        // raw token can be transformed into balance with bonus
+
+        // raw token can be transformed into balance with bonus        
         uint112 rawTokens;
+
         // safe to store timestamp
         uint32 lastMintedTimestamp;
     }
@@ -30,17 +41,15 @@ contract VEN is Token, Owned {
     // Owner of account approves the transfer of an amount to another account
     mapping(address => mapping(address => uint256)) allowed;
 
-    // every buying will update this var. 
-    // pre-alloc to make first buying cost no much more gas than subsequent
-    using Prealloc for Prealloc.UINT256;
-    Prealloc.UINT256 rawTokensSupplied;
-
     // bonus that can be shared by raw tokens
     uint256 bonusOffered;
 
     // Constructor
     function VEN() {
-        rawTokensSupplied.set(0);
+    }
+
+    function totalSupply() constant returns (uint256 supply){
+        return supplies.total;
     }
 
     // Send back ether sent to me
@@ -82,13 +91,14 @@ contract VEN is Token, Owned {
         if (bonusOffered > 0) {
             uint256 bonus = bonusOffered
                  .mul(accounts[_owner].rawTokens)
-                 .div(rawTokensSupplied.get());
+                 .div(supplies.rawTokens);
 
             return bonus.add(accounts[_owner].balance)
                     .add(accounts[_owner].rawTokens);
         }
         
-        return accounts[_owner].balance + accounts[_owner].rawTokens;
+        return uint256(accounts[_owner].balance)
+            .add(accounts[_owner].rawTokens);
     }
 
     // Transfer the balance from owner's account to another account
@@ -103,7 +113,7 @@ contract VEN is Token, Owned {
         if (accounts[msg.sender].balance >= _amount
             && _amount > 0) {            
             accounts[msg.sender].balance -= uint112(_amount);
-            accounts[_to].balance += uint112(_amount);
+            accounts[_to].balance = _amount.add(accounts[_to].balance).toUINT112();
             Transfer(msg.sender, _to, _amount);
             return true;
         } else {
@@ -134,7 +144,7 @@ contract VEN is Token, Owned {
             && _amount > 0) {
             accounts[_from].balance -= uint112(_amount);
             allowed[_from][msg.sender] -= _amount;
-            accounts[_to].balance += uint112(_amount);
+            accounts[_to].balance = _amount.add(accounts[_to].balance).toUINT112();
             Transfer(_from, _to, _amount);
             return true;
         } else {
@@ -171,21 +181,21 @@ contract VEN is Token, Owned {
     function mint(address _owner, uint256 _amount, bool _isRaw, uint32 timestamp) onlyOwner{
         if (_isRaw) {
             accounts[_owner].rawTokens = _amount.add(accounts[_owner].rawTokens).toUINT112();
-            rawTokensSupplied.set(rawTokensSupplied.get().add(_amount));
+            supplies.rawTokens = _amount.add(supplies.rawTokens).toUINT128();
         } else {
             accounts[_owner].balance = _amount.add(accounts[_owner].balance).toUINT112();
         }
 
         accounts[_owner].lastMintedTimestamp = timestamp;
 
-        totalSupply = totalSupply.add(_amount);
+        supplies.total = _amount.add(supplies.total).toUINT128();
         Transfer(0, _owner, _amount);
     }
     
     // Offer bonus to raw tokens holder
     function offerBonus(uint256 _bonus) onlyOwner { 
         bonusOffered = bonusOffered.add(_bonus);
-        totalSupply = totalSupply.add(_bonus);
+        supplies.total = _bonus.add(supplies.total).toUINT128();
         Transfer(0, this, _bonus);
     }
 

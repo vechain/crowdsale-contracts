@@ -3,7 +3,6 @@ pragma solidity ^0.4.11;
 import "./Owned.sol";
 import "./Ven.sol";
 import "./SafeMath.sol";
-import "./Prealloc.sol";
 
 // Contract to sell and distribute VEN tokens
 contract VENSale is Owned{
@@ -42,10 +41,18 @@ contract VENSale is Owned{
     uint256 public constant officialLimit = 64371825 * (10 ** 18);
     uint256 public constant channelsLimit = publicSupply - officialLimit;
 
-    using Prealloc for Prealloc.UINT256;
-    Prealloc.UINT256 officialSold_; // amount of tokens officially sold out
+    // packed to 256bit
+    struct SoldOut {
+        uint16 placeholder; // placeholder to make struct pre-alloced
 
-    uint256 public channelsSold;    // amount of tokens sold out via channels
+        // amount of tokens officially sold out.
+        // max value of 120bit is about 1e36, it's enough for token amount
+        uint120 official; 
+
+        uint120 channels; // amount of tokens sold out via channels
+    }
+
+    SoldOut soldOut;
     
     uint256 constant venPerEth = 3500;  // normal exchange rate
     uint256 constant venPerEthEarlyStage = venPerEth + venPerEth * 15 / 100;  // early stage has 15% reward
@@ -66,7 +73,7 @@ contract VENSale is Owned{
     bool finalized;
 
     function VENSale() {
-        officialSold_.set(0);
+        soldOut.placeholder = 1;
     }    
 
     /// @notice calculte exchange rate according to current stage
@@ -103,7 +110,7 @@ contract VENSale is Owned{
             return Stage.Initialized;
         }
 
-        if (officialSold_.get().add(channelsSold) >= publicSupply) {
+        if (uint256(soldOut.official).add(soldOut.channels) >= publicSupply) {
             // all sold out
             return Stage.Closed;
         }
@@ -156,7 +163,7 @@ contract VENSale is Owned{
             requested = msg.value.mul(rate);
         }
 
-        uint256 remained = officialLimit.sub(officialSold_.get());
+        uint256 remained = officialLimit.sub(soldOut.official);
         if (requested > remained) {
             //exceed remained
             requested = remained;
@@ -168,7 +175,7 @@ contract VENSale is Owned{
             // transfer ETH to vault
             ethVault.transfer(ethCost);
 
-            officialSold_.set(officialSold_.get().add(requested));
+            soldOut.official = requested.add(soldOut.official).toUINT120();
             onSold(msg.sender, requested, ethCost);        
         }
 
@@ -179,10 +186,15 @@ contract VENSale is Owned{
         }        
     }
 
-    /// @notice calculate tokens sold officially
+    /// @notice returns tokens sold officially
     function officialSold() constant returns (uint256) {
-        return officialSold_.get();
+        return soldOut.official;
     }
+
+    /// @notice returns tokens sold via channels
+    function channelsSold() constant returns (uint256) {
+        return soldOut.channels;
+    } 
 
     /// @notice manually offer tokens to channel
     function offerToChannel(address _channelAccount, uint256 _venAmount) onlyOwner {
@@ -190,10 +202,10 @@ contract VENSale is Owned{
         // since the settlement may be delayed, so it's allowed in closed stage
         require(stg == Stage.Early || stg == Stage.Normal || stg == Stage.Closed);
 
-        channelsSold = channelsSold.add(_venAmount);
+        soldOut.channels = _venAmount.add(soldOut.channels).toUINT120();
 
         //should not exceed limit
-        require(channelsSold <= channelsLimit);
+        require(soldOut.channels <= channelsLimit);
 
         ven.mint(
             _channelAccount,
@@ -249,7 +261,7 @@ contract VENSale is Owned{
         // only after closed stage
         require(stage() == Stage.Closed);       
 
-        uint256 unsold = publicSupply.sub(officialSold_.get()).sub(channelsSold);
+        uint256 unsold = publicSupply.sub(soldOut.official).sub(soldOut.channels);
 
         if (unsold > 0) {
             // unsold VEN as bonus

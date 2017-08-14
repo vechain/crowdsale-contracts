@@ -34,4 +34,14 @@ library SafeMath {
     assert(uint112(a) == a);
     return uint112(a);
   }
+
+  function toUINT120(uint256 a) internal constant returns(uint120) {
+    assert(uint120(a) == a);
+    return uint120(a);
+  }
+
+  function toUINT128(uint256 a) internal constant returns(uint128) {
+    assert(uint128(a) == a);
+    return uint128(a);
+  }
 }
