@@ -1,51 +1,90 @@
 pragma solidity ^0.4.11;
 import './Owned.sol';
 import './Token.sol';
+import './SafeMath.sol';
 
-contract Rollback is Owned{
+contract ApprovalReceiver {
+    function receiveApproval(address _from, uint256 _value, address _tokenContract, bytes _extraData);
+}
+
+
+contract Rollback is Owned, ApprovalReceiver {
 
     event onSetCredit(address account , uint256 amount);
-    event onReturned(address who, uint256 venAmount, uint256 ethAmount);
+    event onReturned(address who, uint256 tokenAmount, uint256 ethAmount);
 
-    Token constant ven = Token(0xD850942eF8811f2A866692A623011bDE52a462C1);
-    uint256 public totalCredit;
-    mapping(address => uint256) credits;
-    address venVault;
+
+    using SafeMath for uint256;
+    
+    Token public token = Token(0xD850942eF8811f2A866692A623011bDE52a462C1);
+
+    uint256 public totalSetCredit;                  //set ven that should be returned
+    uint256 public totalReturnedCredit;             //returned ven  
+
+    struct Credit {
+        uint128 total;
+        uint128 used;
+    }
+
+    mapping(address => Credit)  credits;           //public
+    address public tokenVault;
+    
 
     function Rollback() {
     }
 
-    function setVENVault(address _venVault) onlyOwner {
-        venVault = _venVault;
-    }
-
-    function setCredit(address _account, uint256 _amount) onlyOwner { 
-        totalCredit += _amount;
-        totalCredit -= credits[_account];        
-
-        credits[_account] = _amount;       
-        onSetCredit(_account, _amount);
-    }
-    
     function() payable {
     }
 
-    function receiveApproval(address _from, uint256 _value, address _tokenContract, bytes _extraData) {
-        require(venVault != 0);
-        require(msg.sender == address(ven));
-        
-        if(_value > credits[_from])
-            _value = credits[_from];
+    function withdrawETH(address _address,uint256 _amount) onlyOwner {
+        require(_address!=0);
+        _address.transfer(_amount);
+    }
+
+    function setTokenVault(address _tokenVault) onlyOwner {
+        tokenVault = _tokenVault;
+    }
+
+    function setCredit(address _account, uint256 _amount) onlyOwner { 
+
+        totalSetCredit += _amount;
+        totalSetCredit -= credits[_account].total;        
+
+        credits[_account].total = _amount.toUINT128();
+        require(credits[_account].total >= credits[_account].used);
+        onSetCredit(_account, _amount);
+    }
+
+    function getCredit(address _account) constant returns (uint256 total, uint256 used) {
+        return (credits[_account].total, credits[_account].used);
+    }    
+
+    function receiveApproval(address _from, uint256 _value, address /*_tokenContract*/, bytes /*_extraData*/) {
+        require(tokenVault != 0);
+        require(msg.sender == address(token));
+
+        require(credits[_from].total >= credits[_from].used);
+        uint256 remainedCredit = credits[_from].total - credits[_from].used;
+
+        if(_value > remainedCredit)
+            _value = remainedCredit;  
+
+        uint256 balance = token.balanceOf(_from);
+        if(_value > balance)
+            _value = balance;
+
         require(_value > 0);
 
-        require(ven.transferFrom(_from, venVault, _value));
+        require(token.transferFrom(_from, tokenVault, _value));
 
         uint256 ethAmount = _value / 4025;
         require(ethAmount > 0);
 
-        credits[_from] -= _value;
-        _from.transfer(ethAmount);       
+        credits[_from].used += _value.toUINT128();
+        totalReturnedCredit+=_value;
 
+        _from.transfer(ethAmount);
+        
         onReturned(_from, _value, ethAmount);
     }
 }
