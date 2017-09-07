@@ -27,18 +27,18 @@ contract('Rollback', accounts => {
         // check init params
         assertEqual(await rollback.totalSetCredit(), 0)
         assertEqual(await rollback.totalReturnedCredit(), 0)
-        assertEqual(await rollback.tokenVault(), 0)
+        //assertEqual(await rollback.tokenVault(), 0)
 
         //for test purpose, ven init to 0 and then can be customized
         assertEqual(await rollback.token(), 0xD850942eF8811f2A866692A623011bDE52a462C1)
 
     })
 
-    it('setVENVault', async() => {
+    // it('setVENVault', async() => {
 
-        await rollback.setTokenVault(0x00112233445566778899AABBCCDDEEFF00112233)
-        assertEqual(await rollback.tokenVault(), 0x00112233445566778899AABBCCDDEEFF00112233)
-    })
+    //     await rollback.setTokenVault(0x00112233445566778899AABBCCDDEEFF00112233)
+    //     assertEqual(await rollback.tokenVault(), 0x00112233445566778899AABBCCDDEEFF00112233)
+    // })
 
 
     it('setVen', async() => {
@@ -75,7 +75,6 @@ contract('Rollback', accounts => {
         await rollback.withdrawETH(acc1, web3.toWei(1));
         assertEqual(await web3.eth.getBalance(rollback.address), web3.toWei(3));
     })
-
 
     it('receiveApproval', async() => {
 
@@ -125,6 +124,8 @@ contract('Rollback', accounts => {
         balance_temp = await web3.eth.getBalance(rollback.address)
         await ven.approveAndCall(rollback.address, ven_credit_acc0 / 2, '', { from: acc1 });
 
+        assertEqual(await ven.balanceOf(rollback.address), ven_credit_acc0 / 2)
+
         const credit = await rollback.getCredit(acc1)
         assertEqual(credit[0], ven_credit_acc0)
         assertEqual(credit[1], ven_credit_acc0/2)
@@ -153,8 +154,13 @@ contract('Rollback', accounts => {
         assertEqual(await web3.eth.getBalance(rollback.address), balance_temp.sub((ven_credit_acc1 / 2 / 4025)));
         assertEqual(await rollback.totalReturnedCredit(), ven_credit_acc0 + ven_credit_acc1);
 
+    })
 
+    it('withdrawToken', async() => {
+        const tempAcct = '0x' + crypto.randomBytes(20).toString('hex')
 
+        await rollback.withdrawToken(tempAcct, 1, {from: acc1})        
+        assertEqual(await ven.balanceOf(tempAcct), 1)
     })
 
 })

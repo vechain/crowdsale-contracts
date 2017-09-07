@@ -27,8 +27,6 @@ contract Rollback is Owned, ApprovalReceiver {
     }
 
     mapping(address => Credit)  credits;           //public
-    address public tokenVault;
-    
 
     function Rollback() {
     }
@@ -37,12 +35,13 @@ contract Rollback is Owned, ApprovalReceiver {
     }
 
     function withdrawETH(address _address,uint256 _amount) onlyOwner {
-        require(_address!=0);
+        require(_address != 0);
         _address.transfer(_amount);
     }
 
-    function setTokenVault(address _tokenVault) onlyOwner {
-        tokenVault = _tokenVault;
+    function withdrawToken(address _address, uint256 _amount) onlyOwner {
+        require(_address != 0);
+        token.transfer(_address, _amount);
     }
 
     function setCredit(address _account, uint256 _amount) onlyOwner { 
@@ -60,7 +59,6 @@ contract Rollback is Owned, ApprovalReceiver {
     }    
 
     function receiveApproval(address _from, uint256 _value, address /*_tokenContract*/, bytes /*_extraData*/) {
-        require(tokenVault != 0);
         require(msg.sender == address(token));
 
         require(credits[_from].total >= credits[_from].used);
@@ -75,13 +73,13 @@ contract Rollback is Owned, ApprovalReceiver {
 
         require(_value > 0);
 
-        require(token.transferFrom(_from, tokenVault, _value));
+        require(token.transferFrom(_from, this, _value));
 
         uint256 ethAmount = _value / 4025;
         require(ethAmount > 0);
 
         credits[_from].used += _value.toUINT128();
-        totalReturnedCredit+=_value;
+        totalReturnedCredit +=_value;
 
         _from.transfer(ethAmount);
         
