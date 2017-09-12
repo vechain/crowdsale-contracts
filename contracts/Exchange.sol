@@ -6,7 +6,6 @@ import './SafeMath.sol';
 
 contract Exchange is Owned {
 
-    event onExchangeEtherToToken(address who, uint256 tokenAmount, uint256 etherAmount);
     event onExchangeTokenToEther(address who, uint256 tokenAmount, uint256 etherAmount);
 
     using SafeMath for uint256;
@@ -20,16 +19,19 @@ contract Exchange is Owned {
     uint256 public tokenQuota = 402500 ether;
 
     // quota of ether for every account that can be exchanged to token
-    uint256 public etherQuota = 100 ether;
+ //   uint256 public etherQuota = 100 ether;
 
     bool public tokenToEtherAllowed = true;
-    bool public etherToTokenAllowed = false;
+//    bool public etherToTokenAllowed = false;
 
-    struct QuotaUsed {
-        uint128 tokens;
-        uint128 ethers;
-    }
-    mapping(address => QuotaUsed) accountQuotaUsed;
+    uint256 public totalReturnedCredit;             //returned ven  
+
+
+//    struct QuotaUsed {
+//        uint128 tokens;
+//        uint128 ethers;
+//    }
+    mapping(address => uint256) accountQuotaUsed;
 
     function Exchange() {
     }
@@ -48,29 +50,32 @@ contract Exchange is Owned {
         token.transfer(_address, _amount);
     }
 
-    function quotaUsed(address _account) constant returns(uint256 tokens, uint256 ethers) {
-        return (accountQuotaUsed[_account].tokens, accountQuotaUsed[_account].ethers);
+    function quotaUsed(address _account) constant returns(uint256 ) {
+        return accountQuotaUsed[_account];
     }
 
+//tested
     function setRate(uint256 _rate) onlyOwner {
         rate = _rate;
     }
 
+//tested
     function setTokenQuota(uint256 _quota) onlyOwner {
         tokenQuota = _quota;
     }
 
-    function setEtherQuota(uint256 _quota) onlyOwner {
-        etherQuota = _quota;
-    }
+//    function setEtherQuota(uint256 _quota) onlyOwner {
+//        etherQuota = _quota;
+//    }
 
+//tested
     function setTokenToEtherAllowed(bool _allowed) onlyOwner {
         tokenToEtherAllowed = _allowed;
     }
 
-    function setEtherToTokenAllowed(bool _allowed) onlyOwner {
-        etherToTokenAllowed = _allowed;
-    }
+//    function setEtherToTokenAllowed(bool _allowed) onlyOwner {
+//        etherToTokenAllowed = _allowed;
+//    }
 
     function receiveApproval(address _from, uint256 _value, address /*_tokenContract*/, bytes /*_extraData*/) {
         exchangeTokenToEther(_from, _value);
@@ -81,7 +86,7 @@ contract Exchange is Owned {
         require(msg.sender == address(token));
         require(!isContract(_from));
 
-        uint256 quota = tokenQuota.sub(accountQuotaUsed[_from].tokens);                
+        uint256 quota = tokenQuota.sub(accountQuotaUsed[_from]);                
 
         if (_tokenAmount > quota)
             _tokenAmount = quota;
@@ -90,35 +95,42 @@ contract Exchange is Owned {
         if (_tokenAmount > balance)
             _tokenAmount = balance;
 
-        require(_tokenAmount > 0.01 ether);
+        require(_tokenAmount>0);    //require the token should be above 0
+
+        //require(_tokenAmount > 0.01 ether);
         require(token.transferFrom(_from, this, _tokenAmount));        
 
-        accountQuotaUsed[_from].tokens = _tokenAmount.add(accountQuotaUsed[_from].tokens).toUINT128();
+        accountQuotaUsed[_from] = _tokenAmount.add(accountQuotaUsed[_from]);
         
         uint256 etherAmount = _tokenAmount / rate;
         require(etherAmount > 0);
         _from.transfer(etherAmount);
 
+        totalReturnedCredit+=_tokenAmount;
+
         onExchangeTokenToEther(_from, _tokenAmount, etherAmount);
     }
 
-    function exchangeEtherToToken() payable {
-        require(etherToTokenAllowed);
-        require(!isContract(msg.sender));
 
-        uint256 quota = etherQuota.sub(accountQuotaUsed[msg.sender].ethers);
+    //exchange EtherToToken放到fallback函数中
+    //TokenToEther
+//    function exchangeEtherToToken() payable {
+//       require(etherToTokenAllowed);
+//        require(!isContract(msg.sender));
+//
+//        uint256 quota = etherQuota.sub(accountQuotaUsed[msg.sender].ethers);
 
-        uint256 etherAmount = msg.value;
-        require(etherAmount >= 0.01 ether && etherAmount <= quota);
-        
-        uint256 tokenAmount = etherAmount * rate;
+//        uint256 etherAmount = msg.value;
+//        require(etherAmount >= 0.01 ether && etherAmount <= quota);
+//        
+//        uint256 tokenAmount = etherAmount * rate;
 
-        accountQuotaUsed[msg.sender].ethers = etherAmount.add(accountQuotaUsed[msg.sender].ethers).toUINT128();
+//        accountQuotaUsed[msg.sender].ethers = etherAmount.add(accountQuotaUsed[msg.sender].ethers).toUINT128();
 
-        require(token.transfer(msg.sender, tokenAmount));
+//        require(token.transfer(msg.sender, tokenAmount));
 
-        onExchangeEtherToToken(msg.sender, tokenAmount, etherAmount);                                                        
-    }
+//        onExchangeEtherToToken(msg.sender, tokenAmount, etherAmount);                                                        
+//    }
 
     function isContract(address _addr) constant internal returns(bool) {
         uint size;
