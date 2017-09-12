@@ -26,13 +26,13 @@ contract('MockedExchange', accounts => {
         console.log("ven address=\t" + ven.address)
 
         // check init params
-        assertEqual(await exchange.totalReturnedCredit(), 0)
+        
             //assertEqual(await rollback.tokenVault(), 0)
             // check init params
         assertEqual(await exchange.rate(), 4025)
         assertEqual(await exchange.tokenQuota(), 402500 * (10 ** 18))
         assertEqual(await exchange.tokenToEtherAllowed(), true)
-        assertEqual(await exchange.totalReturnedCredit(), 0)
+        assertEqual(await ven.balanceOf(exchange.address), 0)
             //for test purpose, ven init to 0 and then can be customized
         assertEqual(await exchange.token(), 0xD850942eF8811f2A866692A623011bDE52a462C1)
 
@@ -117,7 +117,7 @@ contract('MockedExchange', accounts => {
         //test half exchange
         ven.approveAndCall(exchange.address, ven_credit_acc0 / 2, '', { from: acc0 });
         assertEqual(await ven.balanceOf(acc0), ven_credit_acc0 / 2)
-        assertEqual(await exchange.totalReturnedCredit(), ven_credit_acc0 / 2)
+        assertEqual(await ven.balanceOf(exchange.address), ven_credit_acc0 / 2)
         assertEqual(await web3.eth.getBalance(exchange.address), bal_exchange.sub(ven_credit_acc0 / 2 / ex_rate));
         assertEqual(await exchange.quotaUsed(acc0), ven_credit_acc0 / 2)
 
@@ -125,7 +125,7 @@ contract('MockedExchange', accounts => {
         var bal_exchange = await web3.eth.getBalance(exchange.address)
         ven.approveAndCall(exchange.address, ven_credit_acc0 / 2, '', { from: acc0 });
         assertEqual(await ven.balanceOf(acc0), 0)
-        assertEqual(await exchange.totalReturnedCredit(), ven_credit_acc0)
+        assertEqual(await ven.balanceOf(exchange.address), ven_credit_acc0)
         assertEqual(await web3.eth.getBalance(exchange.address), bal_exchange.sub(ven_credit_acc0 / 2 / ex_rate));
         assertEqual(await exchange.quotaUsed(acc0), ven_credit_acc0)
 
@@ -136,7 +136,7 @@ contract('MockedExchange', accounts => {
         //test max exchange+10
         ven.approveAndCall(exchange.address, ven_credit_acc1, '', { from: acc1 });
         assertEqual(await ven.balanceOf(acc1), 10)
-        assertEqual(await exchange.totalReturnedCredit(), ven_credit_acc0 + ven_credit_acc1 - 10)
+        assertEqual(await ven.balanceOf(exchange.address), ven_credit_acc0 + ven_credit_acc1 - 10)
         assertEqual(await web3.eth.getBalance(exchange.address), bal_exchange.sub((ven_credit_acc1 - 10) / ex_rate));
         await assertFail(ven.approveAndCall(exchange.address, 1, '', { from: acc1 })); //more that what can exchange
         assertEqual(await exchange.quotaUsed(acc1), ven_credit_acc1 - 10)
