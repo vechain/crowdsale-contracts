@@ -18,7 +18,7 @@ contract('MockedExchange', accounts => {
     let exchange
     let ven
 
-    it('deploy', async() => {
+    it('deploy', async () => {
         exchange = await MockedExchange.new()
         ven = await VEN.new()
 
@@ -26,14 +26,14 @@ contract('MockedExchange', accounts => {
         console.log("ven address=\t" + ven.address)
 
         // check init params
-        
-            //assertEqual(await rollback.tokenVault(), 0)
-            // check init params
+
+        //assertEqual(await rollback.tokenVault(), 0)
+        // check init params
         assertEqual(await exchange.rate(), 4025)
         assertEqual(await exchange.tokenQuota(), 402500 * (10 ** 18))
         assertEqual(await exchange.tokenToEtherAllowed(), true)
         assertEqual(await ven.balanceOf(exchange.address), 0)
-            //for test purpose, ven init to 0 and then can be customized
+        //for test purpose, ven init to 0 and then can be customized
         assertEqual(await exchange.token(), 0xD850942eF8811f2A866692A623011bDE52a462C1)
 
 
@@ -45,14 +45,14 @@ contract('MockedExchange', accounts => {
     })
 
     //ven address
-    it('setToken', async() => {
+    it('setToken', async () => {
         await exchange.setToken(ven.address);
         assertEqual(await exchange.token(), ven.address)
     })
 
 
     //exchange rate
-    it('setRate', async() => {
+    it('setRate', async () => {
         await exchange.setRate(1000);
         assertEqual(await exchange.rate(), 1000)
         await exchange.setRate(ex_rate);
@@ -60,7 +60,7 @@ contract('MockedExchange', accounts => {
     })
 
     //maximum token returned for each address
-    it('setTokenQuota', async() => {
+    it('setTokenQuota', async () => {
         await exchange.setTokenQuota(1000 * (10 ** 18));
         assertEqual(await exchange.tokenQuota(), 1000 * (10 ** 18))
         await exchange.setTokenQuota(max_returned);
@@ -68,7 +68,7 @@ contract('MockedExchange', accounts => {
     })
 
     //tokentoether allowed flag
-    it('setTokenToEtherAllowed', async() => {
+    it('setTokenToEtherAllowed', async () => {
         await exchange.setTokenToEtherAllowed(false);
         assertEqual(await exchange.tokenToEtherAllowed(), false)
         await exchange.setTokenToEtherAllowed(true);
@@ -76,7 +76,7 @@ contract('MockedExchange', accounts => {
     })
 
     //withdraw ether
-    it('withdrawEther', async() => {
+    it('withdrawEther', async () => {
         assertEqual(await web3.eth.getBalance(exchange.address), 0);
         await exchange.sendTransaction({ from: acc0, value: web3.toWei(5) })
         await exchange.withdrawEther(acc0, web3.toWei(1));
@@ -84,7 +84,7 @@ contract('MockedExchange', accounts => {
     })
 
     //approve and call
-    it('receiveApproval', async() => {
+    it('receiveApproval', async () => {
         assertEqual(await ven.balanceOf(acc0), 0)
         assertEqual(await ven.balanceOf(acc1), 0)
         assertEqual(await ven.balanceOf(acc2), 0)
@@ -96,10 +96,10 @@ contract('MockedExchange', accounts => {
         const ven_credit_acc2 = max_returned * 2;
         const ven_credit_acc3 = max_returned * 3;
 
-        ven.mint(acc0, ven_credit_acc0, true, 0x1)
-        ven.mint(acc1, ven_credit_acc1, true, 0x2)
-        ven.mint(acc2, ven_credit_acc2, true, 0x3)
-        ven.mint(acc3, ven_credit_acc3, true, 0x4)
+        await ven.mint(acc0, ven_credit_acc0, true, 0x1)
+        await ven.mint(acc1, ven_credit_acc1, true, 0x2)
+        await ven.mint(acc2, ven_credit_acc2, true, 0x3)
+        await ven.mint(acc3, ven_credit_acc3, true, 0x4)
 
         assertEqual(await ven.balanceOf(acc0), ven_credit_acc0)
         assertEqual(await ven.balanceOf(acc1), ven_credit_acc1)
@@ -115,7 +115,7 @@ contract('MockedExchange', accounts => {
         var bal_exchange = await web3.eth.getBalance(exchange.address)
 
         //test half exchange
-        ven.approveAndCall(exchange.address, ven_credit_acc0 / 2, '', { from: acc0 });
+        await ven.approveAndCall(exchange.address, ven_credit_acc0 / 2, '', { from: acc0 });
         assertEqual(await ven.balanceOf(acc0), ven_credit_acc0 / 2)
         assertEqual(await ven.balanceOf(exchange.address), ven_credit_acc0 / 2)
         assertEqual(await web3.eth.getBalance(exchange.address), bal_exchange.sub(ven_credit_acc0 / 2 / ex_rate));
@@ -123,7 +123,7 @@ contract('MockedExchange', accounts => {
 
 
         var bal_exchange = await web3.eth.getBalance(exchange.address)
-        ven.approveAndCall(exchange.address, ven_credit_acc0 / 2, '', { from: acc0 });
+        await ven.approveAndCall(exchange.address, ven_credit_acc0 / 2, '', { from: acc0 });
         assertEqual(await ven.balanceOf(acc0), 0)
         assertEqual(await ven.balanceOf(exchange.address), ven_credit_acc0)
         assertEqual(await web3.eth.getBalance(exchange.address), bal_exchange.sub(ven_credit_acc0 / 2 / ex_rate));
@@ -134,28 +134,21 @@ contract('MockedExchange', accounts => {
         var bal_exchange = await web3.eth.getBalance(exchange.address)
 
         //test max exchange+10
-        ven.approveAndCall(exchange.address, ven_credit_acc1, '', { from: acc1 });
+        await ven.approveAndCall(exchange.address, ven_credit_acc1, '', { from: acc1 });
         assertEqual(await ven.balanceOf(acc1), 10)
         assertEqual(await ven.balanceOf(exchange.address), ven_credit_acc0 + ven_credit_acc1 - 10)
         assertEqual(await web3.eth.getBalance(exchange.address), bal_exchange.sub((ven_credit_acc1 - 10) / ex_rate));
         await assertFail(ven.approveAndCall(exchange.address, 1, '', { from: acc1 })); //more that what can exchange
         assertEqual(await exchange.quotaUsed(acc1), ven_credit_acc1 - 10)
-
-
-
-
     })
 
 
 
 
-    it('withdrawToken', async() => {
+    it('withdrawToken', async () => {
         const tempAcct = '0x' + crypto.randomBytes(20).toString('hex')
 
         await exchange.withdrawToken(tempAcct, 1, { from: acc0 })
         assertEqual(await ven.balanceOf(tempAcct), 1)
     })
-
-
-
 })
