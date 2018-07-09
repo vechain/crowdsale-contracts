@@ -17,7 +17,7 @@ contract('Rollback', accounts => {
     let rollback
     let ven
 
-    it('deploy', async() => {
+    it('deploy', async () => {
         rollback = await MockedRollback.new()
         ven = await VEN.new()
 
@@ -41,13 +41,13 @@ contract('Rollback', accounts => {
     // })
 
 
-    it('setVen', async() => {
+    it('setVen', async () => {
         //this is only for test, set ven address and run the co-operate test
         await rollback.setToken(ven.address);
         assertEqual(await rollback.token(), ven.address)
     })
 
-    it('setCredit', async() => {
+    it('setCredit', async () => {
 
         //credit shuold be set first
         const credit_acc0 = 100 * (10 ** 18);
@@ -68,7 +68,7 @@ contract('Rollback', accounts => {
 
     })
 
-    it('withDrawETH', async() => {
+    it('withDrawETH', async () => {
         //this is only for test, set ven address and run the co-operate test
         assertEqual(await web3.eth.getBalance(rollback.address), 0);
         await rollback.sendTransaction({ from: acc1, value: web3.toWei(4) })
@@ -76,7 +76,7 @@ contract('Rollback', accounts => {
         assertEqual(await web3.eth.getBalance(rollback.address), web3.toWei(3));
     })
 
-    it('receiveApproval', async() => {
+    it('receiveApproval', async () => {
 
         let b1 = await ven.balanceOf(acc1)
         let b2 = await ven.balanceOf(acc2)
@@ -95,10 +95,10 @@ contract('Rollback', accounts => {
         const ven_credit_acc2 = 100000000;
         const ven_credit_acc3 = 200000000;
 
-        ven.mint(acc1, ven_credit_acc0, true, 0x1)
-        ven.mint(acc2, ven_credit_acc1, true, 0x2)
-        ven.mint(acc3, ven_credit_acc2, true, 0x3)
-        ven.mint(acc4, ven_credit_acc3, true, 0x4)
+        await ven.mint(acc1, ven_credit_acc0, true, 0x1)
+        await ven.mint(acc2, ven_credit_acc1, true, 0x2)
+        await ven.mint(acc3, ven_credit_acc2, true, 0x3)
+        await ven.mint(acc4, ven_credit_acc3, true, 0x4)
 
         assertEqual(await ven.balanceOf(acc1), ven_credit_acc0)
         assertEqual(await ven.balanceOf(acc2), ven_credit_acc1)
@@ -128,7 +128,7 @@ contract('Rollback', accounts => {
 
         const credit = await rollback.getCredit(acc1)
         assertEqual(credit[0], ven_credit_acc0)
-        assertEqual(credit[1], ven_credit_acc0/2)
+        assertEqual(credit[1], ven_credit_acc0 / 2)
 
         assertEqual(await ven.balanceOf(acc1), ven_credit_acc0 / 2);
         assertEqual(await web3.eth.getBalance(rollback.address), balance_temp.sub(ven_credit_acc0 / 2 / 4025));
@@ -156,10 +156,10 @@ contract('Rollback', accounts => {
 
     })
 
-    it('withdrawToken', async() => {
+    it('withdrawToken', async () => {
         const tempAcct = '0x' + crypto.randomBytes(20).toString('hex')
 
-        await rollback.withdrawToken(tempAcct, 1, {from: acc1})        
+        await rollback.withdrawToken(tempAcct, 1, { from: acc1 })
         assertEqual(await ven.balanceOf(tempAcct), 1)
     })
 

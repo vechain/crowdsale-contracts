@@ -4,7 +4,7 @@ module.exports = {
         try {
             await promise
         } catch (err) {
-            errorThorwn = err.message.search("invalid opcode") >= 0
+            errorThorwn = err.message.search("does not trigger a Solidity `revert` statement") >= 0
         }
         assert.ok(errorThorwn, "Transaction should fail")
     },

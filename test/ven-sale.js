@@ -18,7 +18,7 @@ contract('Sale', accounts => {
 
   const totalSupply = web3.toWei(10 ** 9)
   const nonPubSupply = web3.toWei((10 ** 9) * 59 / 100)
-  const pubSupply = web3.toWei((10 ** 9) * 41 / 100)  
+  const pubSupply = web3.toWei((10 ** 9) * 41 / 100)
 
   const Stage = {
     Created: 1,
@@ -86,7 +86,7 @@ contract('Sale', accounts => {
 
     assertEqual(await sale.exchangeRate(), exchangeRate)
 
-    const ethVaultBalance = web3.eth.getBalance(ethValut)
+    const ethVaultBalance = await web3.eth.getBalance(ethValut)
     const b1VenBalance = await ven.balanceOf(buyer1)
 
     // send 31 eth
@@ -99,7 +99,7 @@ contract('Sale', accounts => {
     assertEqual(await ven.balanceOf(buyer1), b1VenBalance.add(web3.toWei(exchangeRate * 30)))
 
     // eth vault should received 30 eth
-    assertEqual(web3.eth.getBalance(ethValut), ethVaultBalance.add(web3.toWei(30)))
+    assertEqual(await web3.eth.getBalance(ethValut), ethVaultBalance.add(web3.toWei(30)))
 
     // small value should fail
     await assertFail(sale.sendTransaction({ from: buyer1, value: web3.toWei(0.001) }))
@@ -124,7 +124,7 @@ contract('Sale', accounts => {
     assertEqual(await ven.balanceOf(buyer2), web3.toWei(exchangeRate))
 
     // eth vault should received another 1 eth
-    assertEqual(web3.eth.getBalance(ethValut), ethVaultBalance.add(web3.toWei(1)))
+    assertEqual(await web3.eth.getBalance(ethValut), ethVaultBalance.add(web3.toWei(1)))
   })
 
   it('offer to channels', async () => {
