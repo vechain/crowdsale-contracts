@@ -71,7 +71,7 @@ contract('VEN', accounts => {
         b1 = await ven.balanceOf(acc1)
         b2 = await ven.balanceOf(acc2)
 
-        // transfer amount over blance
+        // transfer amount over balance
         await ven.transfer(acc2, b1.add(1), { from: acc1 })
         // nothing happened
         assertEqual(await ven.balanceOf(acc1), b1)
